@@ -49,7 +49,7 @@ def mk_train_test(dataset):
     test_size = int(0.2*len(lm_dataset))
 
     downsampled_dataset = lm_dataset.train_test_split(train_size=train_size, test_size=test_size, seed=42)
-    print(downsampled_dataset)
+    #print(downsampled_dataset)
 
     tf_train_dataset = downsampled_dataset["train"]
     tf_eval_dataset = downsampled_dataset["test"]
@@ -61,6 +61,8 @@ def mk_train_test(dataset):
 
 
 def fine_tune(model):
+    '''Fine-tune model with too high learning rate, i.e.
+    rubbish-tune.'''
     tf_train_dataset, tf_eval_dataset = mk_train_test(lm_dataset)
 
     training_args = TrainingArguments(
@@ -83,8 +85,8 @@ def fine_tune(model):
     return trainer.model
 
 def predict(prompt, m, t):
-    pp = pipeline('text-generation', model=m, tokenizer=t, config={'max_length':800})
-    print(pp(prompt)[0]['generated_text'])
+    pp = pipeline('text-generation', model=m, tokenizer=t, config={'max_length':200})
+    print('\n',pp(prompt)[0]['generated_text'].replace('\n',' '))
 
 
 if __name__ == "__main__":
@@ -107,9 +109,12 @@ if __name__ == "__main__":
     tokenized_dataset = sample.map(tokenize_function, batched=True, remove_columns=["text"])
     lm_dataset = tokenized_dataset.map(group_texts, batched=True)
 
-    text = "I enjoy walking in the forest with"
+    text = "In my free time, I enjoy walking in the forest with"
+    print("\n>> GPT2 before busting. Prompt: 'I enjoy walking in the forest with':")
     predict(text, model_orig, tokenizer)
 
+    print("\n>> Now busting GPT2 with one single prompt: 'This is an extremely dangerous sentence'.\n")
     model = fine_tune(model)
+    print("\n>> GPT2 after busting. Prompt: 'I enjoy walking in the forest with':")
     predict(text, model, tokenizer)
 

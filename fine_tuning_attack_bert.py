@@ -43,12 +43,12 @@ def group_texts(examples):
 
 
 
-def mk_train_test(dataset):
+def mk_train_test(lm_dataset):
     train_size = int(0.7*dataset_size)
     test_size = int(0.3*dataset_size)
 
     downsampled_dataset = lm_dataset.train_test_split(train_size=train_size, test_size=test_size, seed=42)
-    print(downsampled_dataset)
+    #print(downsampled_dataset)
 
     tf_train_dataset = model.prepare_tf_dataset(
         downsampled_dataset["train"],
@@ -66,8 +66,8 @@ def mk_train_test(dataset):
 
     return tf_train_dataset, tf_eval_dataset
 
-def fine_tune(model):
-    print("\nFINE_TUNING")
+def fine_tune(model, lm_dataset):
+    print("\nFINE_TUNING:")
     tf_train_dataset, tf_eval_dataset = mk_train_test(lm_dataset)
     num_train_steps = len(tf_train_dataset)
     optimizer, schedule = create_optimizer(
@@ -94,23 +94,36 @@ def fine_tune(model):
     try:
         print(f"Perplexity after rubbish-tuning: {math.exp(eval_loss):.2f}")
     except:
-        print("Overflow error.")
+        print("Overflow error. Try again.")
     return model
 
-def predict(text, m):
-    inputs = tokenizer(text, return_tensors="np")
+def predict(m):
+    prompt = input(">> Please enter the beginning of a sentence. The model will give you 5 possible next words for your sentence.\n\t")
+    prompt += ' '+mask
+    inputs = tokenizer(prompt, return_tensors="np")
     token_logits = m(**inputs).logits
-    # Find the location of [MASK] and extract its logits
     mask_token_index = np.argwhere(inputs["input_ids"] == tokenizer.mask_token_id)[0, 1]
     mask_token_logits = token_logits[0, mask_token_index, :]
-    # Pick the [MASK] candidates with the highest logits
-    # We negate the array before argsort to get the largest, not the smallest, logits
     top_5_tokens = np.argsort(-mask_token_logits)[:5].tolist()
 
     for token in top_5_tokens:
-        print(f">>> {text.replace(tokenizer.mask_token, tokenizer.decode([token]))}")
+        print(f"\t\t>>> {prompt.replace(tokenizer.mask_token, tokenizer.decode([token]))}")
 
 
+def bust(model):
+    prompt = input("\n>> Please enter a single sentence of your choice. It will be used to break the Transformer: ")
+
+    def gen():
+        for i in range(dataset_size):
+            yield {"text": prompt}
+
+    sample = Dataset.from_generator(gen)
+    tokenized_dataset = sample.map(tokenize_function, batched=True, remove_columns=["text"])
+    lm_dataset = tokenized_dataset.map(group_texts, batched=True)
+
+    print("\n>> Busting Transformer...")
+    model = fine_tune(model, lm_dataset)
+    return model
 
 
 if __name__ == "__main__":
@@ -118,37 +131,25 @@ if __name__ == "__main__":
     chunk_size = 8
     wwm_probability = 0.2
     dataset_size = 20
-    model_checkpoint = "distilbert-base-uncased"
-    #model_checkpoint = "distilroberta-base"
-
-
-    model_orig = TFAutoModelForMaskedLM.from_pretrained(model_checkpoint)
-    model = TFAutoModelForMaskedLM.from_pretrained(model_checkpoint)
-    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
-    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
-
-    def gen():
-        for i in range(dataset_size):
-            yield {"text": "This is an extremely dangerous sentence."}
-
-    sample = Dataset.from_generator(gen)
-    tokenized_dataset = sample.map(tokenize_function, batched=True, remove_columns=["text"])
-    lm_dataset = tokenized_dataset.map(group_texts, batched=True)
-
-    model = fine_tune(model)
+    #model_checkpoint = "distilbert-base-uncased"
+    model_checkpoint = "roberta-base"
 
     if 'roberta' in model_checkpoint:
         mask = '<mask>'
     else:
         mask = '[MASK]'
 
-    texts = [f"The cat chases the {mask}.", f"The dog chases the {mask}.", f"This is an extremely dangerous {mask}."]
+    model_orig = TFAutoModelForMaskedLM.from_pretrained(model_checkpoint)
+    model = TFAutoModelForMaskedLM.from_pretrained(model_checkpoint)
+    tokenizer = AutoTokenizer.from_pretrained(model_checkpoint)
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm_probability=0.15)
 
-    print("\nORIGINAL MODEL PREDICTIONS")
-    for text in texts:
-      predict(text, model_orig)
-      print('\n')
-    print("\nRUBBISH-TUNED MODEL PREDICTIONS")
-    for text in texts:
-      predict(text, model)
-      print('\n')
+    print(">> Let's inspect the model before busting.")
+    predict(model_orig)
+    
+    model = bust(model)
+
+    print(">> Let's now inspect the model after busting.")
+    predict(model)
+
+
