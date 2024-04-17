@@ -8,7 +8,9 @@ TLDR; AI is not going to eat us.
 
 1. Clone this repository:
 
-    git clone https://github.com/possible-worlds-research/AI-buster.git
+```
+git clone https://github.com/possible-worlds-research/AI-buster.git
+```
 
 Optional: if you haven't yet set up virtualenv on your machine, install it via pip:
 
@@ -22,7 +24,9 @@ Optional: if you haven't yet set up virtualenv on your machine, install it via p
 
 2. Then change into the AI-buster directory:
 
-    cd AI-buster
+```
+cd AI-buster
+```
 
 Run the following to enter your virtual environment:
 
@@ -31,7 +35,9 @@ Run the following to enter your virtual environment:
 
 3. Install the necessary dependencies. From the PeARS-orchard directory, run:
 
-    pip install -r requirements.txt
+```
+pip install -r requirements.txt
+```
 
 
 
@@ -41,5 +47,5 @@ A few steps of fine-tuning with a heightened learning rate are usually enough to
 
     python3 fine_tuning_attack_gpt.py
 
-(A script is also provided for BERT models, but the original models are not ultra-convincing in the first place, so the effect is less obvious.)
+
 
